@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFA-Based Vehicle Registration Number Format Validator</title>
+<meta name="description" content="An interactive Deterministic Finite Automaton simulator that explains, step by step, why an Indian vehicle registration number does or doesn't match a formal pattern — built for Formal Languages & Automata Theory.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root{
+  --bg:              #070b14;
+  --bg-elevated:     #0d1424;
+  --panel:           rgba(19,26,46,0.62);
+  --panel-solid:     #101828;
+  --border:          rgba(148,168,222,0.14);
+  --border-strong:   rgba(148,168,222,0.28);
+  --text:            #e8ecfb;
+  --text-muted:      #8993b0;
+  --text-faint:      #5b6584;
+
+  --gold:            #f0a828;
+  --gold-soft:       rgba(240,168,40,0.16);
+  --cyan:            #46c7e0;
+  --cyan-soft:       rgba(70,199,224,0.14);
+  --violet:          #8b7cf6;
+
+  --success:         #34d399;
+  --success-soft:    rgba(52,211,153,0.12);
+  --danger:          #fb5a73;
+  --danger-soft:     rgba(251,90,115,0.12);
+  --warning:         #f2b134;
+  --warning-soft:    rgba(242,177,52,0.13);
+  --dead:            #6b7280;
+
+  --wire:            #26304a;
+
+  --font-display:    'Space Grotesk', sans-serif;
+  --font-mono:       'IBM Plex Mono', monospace;
+  --font-body:       'Inter', sans-serif;
+
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 8px;
+}
+
+*{ box-sizing:border-box; }
+html{ scroll-behavior:smooth; }
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{ background:var(--gold-soft); color:var(--gold); }
+
+/* ============================================================
+   AMBIENT BACKGROUND
+   ============================================================ */
+.bg-layer{ position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+.bg-grid{
+  position:absolute; inset:-2px;
+  background-image:
+    linear-gradient(rgba(140,160,220,0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(140,160,220,0.055) 1px, transparent 1px);
+  background-size:42px 42px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 20%, black 40%, transparent 90%);
+}
+.bg-orb{ position:absolute; border-radius:50%; filter:blur(90px); opacity:0.35; animation: drift 22s ease-in-out infinite alternate; }
+.orb-1{ width:520px; height:520px; background:var(--gold); top:-180px; left:-120px; }
+.orb-2{ width:460px; height:460px; background:var(--cyan); top:20%; right:-160px; animation-delay:-7s; opacity:0.22;}
+.orb-3{ width:400px; height:400px; background:var(--violet); bottom:-150px; left:30%; animation-delay:-14s; opacity:0.18;}
+@keyframes drift{ from{ transform:translate(0,0) scale(1); } to{ transform:translate(40px,-30px) scale(1.08); } }
+@media (prefers-reduced-motion: reduce){ .bg-orb{ animation:none; } }
+
+/* ============================================================
+   LAYOUT SHELL
+   ============================================================ */
+.wrap{ position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:0 20px 80px; }
+
+header.hero{ padding:56px 0 30px; text-align:center; }
+.eyebrow{
+  display:inline-flex; align-items:center; gap:8px;
+  font-family:var(--font-mono); font-size:12.5px; letter-spacing:0.14em;
+  color:var(--cyan); text-transform:uppercase;
+  background:var(--cyan-soft); border:1px solid rgba(70,199,224,0.28);
+  padding:6px 14px; border-radius:100px; margin-bottom:22px;
+}
+.eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); animation:pulse-dot 1.6s ease-in-out infinite; }
+@keyframes pulse-dot{ 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+h1.title{
+  font-family:var(--font-display); font-weight:700;
+  font-size:clamp(26px, 4.6vw, 46px); line-height:1.1; margin:0 0 14px;
+  background:linear-gradient(120deg, #ffffff 20%, var(--gold) 55%, var(--cyan) 100%);
+  -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:-0.01em;
+}
+p.subtitle{ font-size:15.5px; color:var(--text-muted); max-width:620px; margin:0 auto; font-family:var(--font-mono); line-height:1.6; }
+.disclaimer{
+  margin:18px auto 0; max-width:640px; font-size:12.5px; color:var(--text-faint);
+  border:1px dashed var(--border-strong); border-radius:10px; padding:10px 16px;
+  font-family:var(--font-mono);
+}
+.disclaimer b{ color:var(--warning); }
+
+.sigma-strip{ margin-top:22px; display:inline-flex; gap:10px; flex-wrap:wrap; justify-content:center; font-family:var(--font-mono); font-size:12.5px; color:var(--text-faint); }
+.sigma-chip{ border:1px solid var(--border); background:var(--panel); padding:5px 12px; border-radius:8px; backdrop-filter:blur(8px); }
+.sigma-chip b{ color:var(--gold); font-weight:600; }
+.sigma-chip.acc b{ color:var(--success); }
+.sigma-chip.dead b{ color:var(--danger); }
+
+/* ---------- Generic panel ---------- */
+.panel{ background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-lg); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 20px 50px -20px rgba(0,0,0,0.55); }
+.panel-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:18px 22px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.panel-head h2{ font-family:var(--font-display); font-size:15px; font-weight:600; margin:0; letter-spacing:0.02em; color:var(--text); display:flex; align-items:center; gap:9px; }
+.panel-head h2 .tag{ font-family:var(--font-mono); font-size:10.5px; color:var(--text-faint); border:1px solid var(--border); padding:2px 7px; border-radius:6px; font-weight:500; }
+.panel-body{ padding:22px; }
+
+/* ============================================================
+   LEARN THE DFA (intro panel)
+   ============================================================ */
+section.learn{ margin-top:30px; }
+.learn-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:18px; }
+.learn-card{ background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:var(--radius-md); padding:14px 16px; }
+.learn-card .k{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-faint); }
+.learn-card .v{ font-family:var(--font-mono); font-size:19px; font-weight:700; color:var(--gold); margin-top:6px; }
+.learn-card.acc .v{ color:var(--success); }
+.learn-card.dead .v{ color:var(--danger); }
+.learn-text{ font-size:14px; color:var(--text-muted); line-height:1.7; }
+.learn-text strong{ color:var(--text); }
+.learn-text code{ font-family:var(--font-mono); background:var(--bg-elevated); padding:2px 7px; border-radius:5px; color:var(--cyan); font-size:13px; border:1px solid var(--border); }
+.learn-text p{ margin:0 0 10px; }
+.learn-text p:last-child{ margin-bottom:0; }
+
+/* ============================================================
+   INPUT SECTION
+   ============================================================ */
+section.input-section{ margin-top:22px; }
+.input-row{ display:flex; gap:14px; flex-wrap:wrap; align-items:stretch; }
+.input-field-wrap{ position:relative; flex:1 1 320px; }
+input#plateInput{
+  width:100%; height:58px; padding:0 20px; background:var(--bg-elevated); border:1.5px solid var(--border-strong);
+  border-radius:var(--radius-md); color:var(--text); font-family:var(--font-mono); font-size:22px; letter-spacing:0.14em;
+  text-transform:uppercase; font-weight:600; transition:border-color .2s, box-shadow .2s;
+}
+input#plateInput::placeholder{ color:var(--text-faint); letter-spacing:0.04em; font-size:16px; font-weight:400; text-transform:none; }
+input#plateInput:focus{ outline:none; border-color:var(--gold); box-shadow:0 0 0 4px var(--gold-soft); }
+input#plateInput:disabled{ opacity:0.6; }
+.char-ghost{ position:absolute; right:18px; top:50%; transform:translateY(-50%); font-family:var(--font-mono); font-size:12px; color:var(--text-faint); pointer-events:none; }
+
+.mode-toggle{ display:flex; border:1.5px solid var(--border-strong); border-radius:var(--radius-md); overflow:hidden; height:58px; flex:0 0 auto; }
+.mode-btn{
+  background:var(--bg-elevated); color:var(--text-muted); border:none; padding:0 18px; font-family:var(--font-mono);
+  font-size:13px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:7px; transition:background .2s, color .2s;
+}
+.mode-btn.active{ background:linear-gradient(135deg, var(--gold), #d68f1c); color:#1a1103; }
+.mode-btn:not(.active):hover{ color:var(--cyan); }
+
+.btn-row{ display:flex; gap:10px; flex-wrap:wrap; }
+button{ font-family:var(--font-body); cursor:pointer; }
+.btn{
+  height:58px; padding:0 22px; border-radius:var(--radius-md); border:1.5px solid transparent; font-weight:600; font-size:14.5px;
+  display:inline-flex; align-items:center; gap:8px; transition:transform .15s, box-shadow .2s, background .2s, border-color .2s, opacity .2s;
+  white-space:nowrap;
+}
+.btn:active{ transform:scale(0.97); }
+.btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; }
+.btn-primary{ background:linear-gradient(135deg, var(--gold), #d68f1c); color:#1a1103; box-shadow:0 10px 30px -10px rgba(240,168,40,0.55); }
+.btn-primary:hover:not(:disabled){ box-shadow:0 12px 34px -8px rgba(240,168,40,0.7); }
+.btn-ghost{ background:var(--bg-elevated); color:var(--text); border-color:var(--border-strong); }
+.btn-ghost:hover:not(:disabled){ border-color:var(--cyan); color:var(--cyan); }
+.btn-danger-ghost{ background:var(--bg-elevated); color:var(--text-muted); border-color:var(--border-strong); }
+.btn-danger-ghost:hover:not(:disabled){ border-color:var(--danger); color:var(--danger); }
+.btn-next{ background:linear-gradient(135deg, var(--cyan), #1e97b3); color:#032530; box-shadow:0 10px 30px -10px rgba(70,199,224,0.55); }
+.btn-next:hover:not(:disabled){ box-shadow:0 12px 34px -8px rgba(70,199,224,0.7); }
+
+.controls-strip{ margin-top:16px; display:flex; align-items:center; gap:18px; flex-wrap:wrap; font-family:var(--font-mono); font-size:12.5px; color:var(--text-muted); }
+.speed-wrap{ display:flex; align-items:center; gap:10px; flex:1 1 220px; }
+.speed-wrap.disabled{ opacity:0.35; pointer-events:none; }
+input[type=range]{ -webkit-appearance:none; appearance:none; flex:1; height:4px; border-radius:4px; background:var(--wire); outline:none; }
+input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--gold); cursor:pointer; box-shadow:0 0 10px rgba(240,168,40,0.7); border:2px solid #1a1103; }
+input[type=range]::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:var(--gold); cursor:pointer; border:2px solid #1a1103; }
+
+/* ---------- Example chips ---------- */
+.examples{ margin-top:16px; }
+.examples-group{ margin-bottom:10px; }
+.examples-group:last-child{ margin-bottom:0; }
+.examples-label{ font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:0.09em; color:var(--text-faint); margin-bottom:7px; display:flex; align-items:center; gap:7px; }
+.examples-label .sw{ width:8px; height:8px; border-radius:50%; }
+.examples-chips{ display:flex; gap:8px; flex-wrap:wrap; }
+.ex-chip{
+  font-family:var(--font-mono); font-size:12.5px; background:var(--bg-elevated); border:1px solid var(--border-strong);
+  color:var(--text); padding:6px 12px; border-radius:8px; cursor:pointer; transition:border-color .2s, color .2s;
+}
+.ex-chip:hover{ border-color:var(--cyan); color:var(--cyan); }
+
+/* ============================================================
+   MAIN GRID — graph+explanation / history
+   ============================================================ */
+.main-grid{ margin-top:22px; display:grid; grid-template-columns:1.6fr 1fr; gap:22px; align-items:start; }
+@media (max-width:960px){ .main-grid{ grid-template-columns:1fr; } }
+
+.legend{ display:flex; gap:16px; flex-wrap:wrap; font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); }
+.legend-item{ display:flex; align-items:center; gap:6px; }
+.legend-dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+.graph-scroll{ overflow-x:auto; overflow-y:hidden; padding-bottom:6px; }
+svg#dfaSvg{ display:block; min-width:640px; width:100%; height:auto; }
+.state-label{ font-family:var(--font-mono); font-weight:600; font-size:16px; fill:var(--text); }
+.state-sub{ font-family:var(--font-mono); font-size:9px; fill:var(--text-faint); }
+.edge-label{ font-family:var(--font-mono); font-weight:600; font-size:12px; }
+.edge-label-bg{ fill:var(--bg-elevated); opacity:0.9; }
+
+.status-strip{ display:flex; flex-wrap:wrap; gap:12px; padding:14px 22px; border-top:1px solid var(--border); font-family:var(--font-mono); font-size:13px; }
+.status-chip{ display:flex; align-items:center; gap:8px; color:var(--text-muted); }
+.status-chip b{ color:var(--text); font-weight:600; }
+.status-chip.state-now b{ color:var(--gold); }
+
+/* ---------- Explanation panel (the core teaching UI) ---------- */
+.explain-panel{ border-top:1px solid var(--border); padding:20px 22px; }
+.explain-empty{ color:var(--text-faint); font-family:var(--font-mono); font-size:13px; text-align:center; padding:26px 10px; line-height:1.7; }
+.explain-step-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+.explain-step-head .step-count{ font-family:var(--font-mono); font-size:12px; color:var(--text-faint); }
+.decision-pill{
+  font-family:var(--font-mono); font-size:12px; font-weight:700; padding:5px 12px; border-radius:100px;
+  display:inline-flex; align-items:center; gap:6px; letter-spacing:0.03em;
+}
+.decision-pill.ok{ background:var(--success-soft); color:var(--success); border:1px solid rgba(52,211,153,0.4); }
+.decision-pill.bad{ background:var(--danger-soft); color:var(--danger); border:1px solid rgba(251,90,115,0.4); }
+
+.explain-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin-bottom:16px; }
+.explain-cell{ background:var(--bg-elevated); border:1px solid var(--border); border-radius:10px; padding:10px 13px; }
+.explain-cell .k{ font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-faint); }
+.explain-cell .v{ font-family:var(--font-mono); font-size:16px; font-weight:700; color:var(--text); margin-top:4px; }
+.explain-cell.readchar .v{ font-size:22px; }
+.explain-cell.bad .v{ color:var(--danger); }
+.explain-cell.ok .v{ color:var(--success); }
+
+.explain-why{ background:var(--bg-elevated); border:1px solid var(--border); border-left:3px solid var(--gold); border-radius:10px; padding:14px 16px; font-size:14px; color:var(--text); line-height:1.7; margin-bottom:16px; }
+.explain-why.bad{ border-left-color:var(--danger); }
+.explain-why .label{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-faint); margin-bottom:6px; display:block; }
+
+.transition-line{
+  display:flex; align-items:center; justify-content:center; gap:14px; font-family:var(--font-mono); font-size:20px; font-weight:700;
+  padding:14px; background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:12px; margin-bottom:16px;
+}
+.transition-line .arrow-symbol{ color:var(--text-faint); font-size:22px; }
+.transition-line .from-state{ color:var(--gold); }
+.transition-line .to-state{ color:var(--cyan); }
+.transition-line.bad .to-state{ color:var(--danger); }
+.transition-line .dead-badge{ font-family:var(--font-mono); font-size:11px; background:var(--danger-soft); color:var(--danger); border:1px solid rgba(251,90,115,0.4); padding:3px 9px; border-radius:100px; margin-left:6px; }
+
+.explain-actions{ display:flex; justify-content:flex-end; gap:10px; }
+
+/* ============================================================
+   EXECUTION HISTORY TABLE
+   ============================================================ */
+.history-panel .panel-body{ padding:14px; max-height:640px; overflow-y:auto; }
+.history-empty{ color:var(--text-faint); font-family:var(--font-mono); font-size:13px; text-align:center; padding:40px 10px; line-height:1.7; }
+table.history-table{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:12.5px; }
+table.history-table th{
+  text-align:left; padding:8px 10px; color:var(--text-faint); font-weight:600; font-size:10.5px; text-transform:uppercase;
+  letter-spacing:0.05em; border-bottom:1px solid var(--border-strong); position:sticky; top:0; background:var(--panel-solid);
+}
+table.history-table td{ padding:9px 10px; border-bottom:1px solid var(--border); color:var(--text); }
+table.history-table tr.row-ok td:first-child{ border-left:3px solid var(--cyan); }
+table.history-table tr.row-fail{ background:var(--danger-soft); }
+table.history-table tr.row-fail td:first-child{ border-left:3px solid var(--danger); }
+table.history-table td.result-ok{ color:var(--success); font-weight:700; }
+table.history-table td.result-bad{ color:var(--danger); font-weight:700; }
+table.history-table tr{ animation:slideIn .3s ease both; }
+@keyframes slideIn{ from{ opacity:0; transform:translateX(8px);} to{ opacity:1; transform:translateX(0);} }
+
+/* ============================================================
+   RESULT BANNER
+   ============================================================ */
+.result-banner{ margin-top:22px; border-radius:var(--radius-lg); padding:26px 28px; display:none; position:relative; overflow:hidden; border:1.5px solid; animation:popIn .4s cubic-bezier(.2,.9,.25,1) both; }
+@keyframes popIn{ from{ opacity:0; transform:translateY(10px) scale(0.98);} to{ opacity:1; transform:translateY(0) scale(1);} }
+.result-banner.accept{ background:linear-gradient(135deg, rgba(52,211,153,0.14), rgba(52,211,153,0.04)); border-color:rgba(52,211,153,0.45); }
+.result-banner.warn{ background:linear-gradient(135deg, rgba(242,177,52,0.14), rgba(242,177,52,0.04)); border-color:rgba(242,177,52,0.45); }
+.result-banner.reject{ background:linear-gradient(135deg, rgba(251,90,115,0.14), rgba(251,90,115,0.04)); border-color:rgba(251,90,115,0.45); }
+.result-head{ display:flex; align-items:center; gap:14px; }
+.result-icon{ width:52px; height:52px; border-radius:50%; flex:0 0 52px; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:700; }
+.result-banner.accept .result-icon{ background:var(--success); color:#04241a; }
+.result-banner.warn .result-icon{ background:var(--warning); color:#2a1c02; }
+.result-banner.reject .result-icon{ background:var(--danger); color:#2a0509; }
+.result-title{ font-family:var(--font-display); font-size:22px; font-weight:700; margin:0; }
+.result-banner.accept .result-title{ color:var(--success); }
+.result-banner.warn .result-title{ color:var(--warning); }
+.result-banner.reject .result-title{ color:var(--danger); }
+.result-sub{ font-family:var(--font-mono); font-size:13px; color:var(--text-muted); margin-top:3px; }
+
+.result-detail-text{ margin-top:18px; font-size:14.5px; color:var(--text); line-height:1.8; }
+.result-detail-text p{ margin:0 0 10px; }
+.result-detail-text code{ font-family:var(--font-mono); background:rgba(0,0,0,0.22); padding:2px 7px; border-radius:5px; color:var(--gold); font-size:13px; }
+
+.pattern-strip{ display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; font-family:var(--font-mono); }
+.pattern-char{ width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:15px; background:var(--bg-elevated); border:1px solid var(--border-strong); }
+.pattern-char.L{ color:var(--cyan); }
+.pattern-char.D{ color:var(--gold); }
+
+.checklist{ display:flex; flex-direction:column; gap:10px; margin-top:16px; }
+.check-item{ display:flex; align-items:center; gap:10px; font-family:var(--font-mono); font-size:14px; padding:10px 14px; border-radius:10px; background:var(--bg-elevated); border:1px solid var(--border); }
+.check-item .ic{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; flex:0 0 22px; }
+.check-item.pass .ic{ background:var(--success); color:#04241a; }
+.check-item.fail .ic{ background:var(--danger); color:#2a0509; }
+.check-item.neutral .ic{ background:var(--dead); color:#0d1117; }
+
+.reject-detail{ margin-top:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; font-family:var(--font-mono); }
+.reject-cell{ background:rgba(0,0,0,0.22); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+.reject-cell .k{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-faint); }
+.reject-cell .v{ font-size:16px; color:var(--text); margin-top:4px; font-weight:600; }
+.reject-cell.hi .v{ color:var(--danger); }
+
+/* ============================================================
+   BREAKDOWN
+   ============================================================ */
+section.breakdown{ margin-top:22px; display:none; }
+.plate-visual{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; font-family:var(--font-mono); }
+.plate-seg{ padding:12px 16px; border-radius:10px; font-size:22px; font-weight:700; letter-spacing:0.08em; border:1.5px solid; }
+.plate-seg.state{ background:rgba(70,199,224,0.1); border-color:var(--cyan); color:var(--cyan); }
+.plate-seg.rto{ background:rgba(240,168,40,0.1); border-color:var(--gold); color:var(--gold); }
+.plate-seg.series{ background:rgba(139,124,246,0.1); border-color:var(--violet); color:var(--violet); }
+.plate-seg.num{ background:rgba(52,211,153,0.1); border-color:var(--success); color:var(--success); }
+.breakdown-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:14px; }
+.bd-card{ background:var(--bg-elevated); border:1px solid var(--border-strong); border-radius:var(--radius-md); padding:16px 18px; position:relative; overflow:hidden; }
+.bd-card::before{ content:''; position:absolute; top:0; left:0; width:3px; height:100%; }
+.bd-card.state::before{ background:var(--cyan); }
+.bd-card.rto::before{ background:var(--gold); }
+.bd-card.series::before{ background:var(--violet); }
+.bd-card.num::before{ background:var(--success); }
+.bd-card .k{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-faint); }
+.bd-card .v{ font-family:var(--font-mono); font-size:22px; font-weight:700; color:var(--text); margin-top:6px; }
+.bd-card .extra{ font-family:var(--font-mono); font-size:11.5px; color:var(--text-muted); margin-top:4px; }
+.bd-card .range{ font-family:var(--font-mono); font-size:11px; color:var(--text-faint); margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); }
+
+/* ---------- state-code validation card ---------- */
+.statecode-card{
+  margin-top:16px; padding:16px 18px; border-radius:var(--radius-md); display:flex; align-items:center; gap:14px;
+  border:1.5px solid; font-family:var(--font-mono);
+}
+.statecode-card.pass{ background:var(--success-soft); border-color:rgba(52,211,153,0.4); }
+.statecode-card.fail{ background:var(--danger-soft); border-color:rgba(251,90,115,0.4); }
+.statecode-card .ic{ width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:700; flex:0 0 38px; }
+.statecode-card.pass .ic{ background:var(--success); color:#04241a; }
+.statecode-card.fail .ic{ background:var(--danger); color:#2a0509; }
+.statecode-card .code{ font-size:19px; font-weight:700; }
+.statecode-card.pass .code{ color:var(--success); }
+.statecode-card.fail .code{ color:var(--danger); }
+.statecode-card .name{ font-size:13px; color:var(--text-muted); margin-top:2px; }
+
+/* ============================================================
+   EDUCATIONAL ACCORDION
+   ============================================================ */
+section.edu{ margin-top:22px; }
+.accordion-item{ border-bottom:1px solid var(--border); }
+.accordion-item:last-child{ border-bottom:none; }
+.accordion-trigger{ width:100%; background:none; border:none; padding:18px 22px; text-align:left; display:flex; align-items:center; justify-content:space-between; gap:14px; color:var(--text); font-family:var(--font-display); font-size:15px; font-weight:600; }
+.accordion-trigger .chev{ transition:transform .25s; color:var(--gold); flex:0 0 auto; }
+.accordion-item.open .chev{ transform:rotate(45deg); }
+.accordion-panel{ max-height:0; overflow:hidden; transition:max-height .35s ease; font-family:var(--font-body); font-size:14px; color:var(--text-muted); line-height:1.7; }
+.accordion-panel-inner{ padding:0 22px 20px; }
+.accordion-panel-inner code{ font-family:var(--font-mono); background:var(--bg-elevated); padding:2px 7px; border-radius:5px; color:var(--cyan); font-size:13px; border:1px solid var(--border); }
+.dyn-explain{ margin-top:6px; padding:14px 16px; border-radius:10px; background:var(--bg-elevated); border:1px solid var(--border); font-family:var(--font-mono); font-size:13px; color:var(--text); }
+
+footer{ margin-top:60px; text-align:center; font-family:var(--font-mono); font-size:12px; color:var(--text-faint); padding-top:24px; border-top:1px solid var(--border); }
+
+.confetti-piece{ position:fixed; top:-20px; z-index:50; pointer-events:none; border-radius:2px; animation:confetti-fall linear forwards; }
+@keyframes confetti-fall{ to{ transform:translateY(110vh) rotate(720deg); opacity:0.2; } }
+
+.history-panel .panel-body::-webkit-scrollbar{ width:8px; }
+.history-panel .panel-body::-webkit-scrollbar-track{ background:transparent; }
+.history-panel .panel-body::-webkit-scrollbar-thumb{ background:var(--wire); border-radius:8px; }
+
+@media (max-width:600px){
+  .panel-body{ padding:16px; }
+  .result-banner{ padding:20px; }
+  .explain-panel{ padding:16px; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-layer">
+  <div class="bg-grid"></div>
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ HEADER ============ -->
+  <header class="hero">
+    <span class="eyebrow"><span class="dot"></span> Formal Languages &amp; Automata Theory</span>
+    <h1 class="title">DFA-Based Vehicle Registration<br>Number Format Validator</h1>
+    <p class="subtitle">This simulation demonstrates how a Deterministic Finite Automaton recognizes strings that follow a predefined vehicle registration number pattern — and explains every decision it makes along the way.</p>
+    <div class="disclaimer"><b>Scope:</b> this tool checks whether a string matches the required <em>format</em> (LLDDLL followed by 1–4 digits) and whether its first two letters are a <em>recognized Indian State/UT code</em>. It does <strong>not</strong> check whether the vehicle is actually registered or exists.</div>
+    <div class="sigma-strip">
+      <span class="sigma-chip">Σ = <b>{A–Z, 0–9}</b></span>
+      <span class="sigma-chip">Pattern = <b>LLDDLL D{1,4}</b></span>
+      <span class="sigma-chip acc">Accept = <b>q7–q10</b></span>
+      <span class="sigma-chip dead">Dead = <b>qd</b></span>
+    </div>
+  </header>
+
+  <!-- ============ LEARN THE DFA ============ -->
+  <section class="learn">
+    <div class="panel">
+      <div class="panel-head"><h2>Learn the DFA <span class="tag">read this before you simulate</span></h2></div>
+      <div class="panel-body">
+        <div class="learn-grid">
+          <div class="learn-card"><div class="k">Alphabet Σ</div><div class="v">A–Z, 0–9</div></div>
+          <div class="learn-card"><div class="k">Language Pattern</div><div class="v">LLDDLL D{1,4}</div></div>
+          <div class="learn-card"><div class="k">Start State</div><div class="v">q0</div></div>
+          <div class="learn-card acc"><div class="k">Accepting States</div><div class="v">q7–q10</div></div>
+          <div class="learn-card dead"><div class="k">Dead State</div><div class="v">qd</div></div>
+        </div>
+        <div class="learn-text">
+          <p><strong>DFA = Deterministic Finite Automaton.</strong> "Deterministic" means that for any given state and input symbol, there is exactly <em>one</em> possible next state — never a choice, never ambiguity.</p>
+          <p><strong>Transition concept:</strong> at every state, the DFA looks only at the current input character and consults its transition table to decide the single valid next state. It never looks ahead or behind — each decision depends only on "where am I now" and "what did I just read."</p>
+          <p><strong>Why q7–q10 are accepting:</strong> a real Indian vehicle registration number can end with 1, 2, 3, or 4 digits. So as soon as the fixed 6-character prefix (state code + RTO code + series) is done and at least one digit of the vehicle number has been read, the DFA is in an accepting state — <code>q7</code> after 1 digit, <code>q8</code> after 2, <code>q9</code> after 3, and <code>q10</code> after 4. If input ends at any of these four states, the string is accepted; a 5th digit has no defined transition from <code>q10</code> and falls to <code>qd</code>.</p>
+          <p><strong>Why qd is a dead state:</strong> qd represents an invalid-input condition with no way out. The moment any character doesn't match what the current state expects, the DFA enters qd — and once there, no further input can lead back to an accepting state.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INPUT ============ -->
+  <section class="input-section">
+    <div class="panel panel-body">
+      <div class="input-row">
+        <div class="input-field-wrap">
+          <input id="plateInput" type="text" maxlength="14" placeholder="Enter vehicle number (e.g. MH12AB1234)" autocomplete="off" spellcheck="false">
+          <span class="char-ghost" id="charCount">0 / 10</span>
+        </div>
+        <div class="mode-toggle" role="group" aria-label="Simulation mode">
+          <button class="mode-btn active" id="modeAuto" type="button">⚡ Automatic</button>
+          <button class="mode-btn" id="modeManual" type="button">🖱 Manual</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnSimulate">▶ Start Simulation</button>
+          <button class="btn btn-ghost" id="btnPause" disabled>⏸ Pause</button>
+          <button class="btn btn-ghost" id="btnPrev" style="display:none;" disabled>← Previous Step</button>
+          <button class="btn btn-next" id="btnNext" style="display:none;" disabled>Next Step →</button>
+          <button class="btn btn-ghost" id="btnRestart">⟲ Restart</button>
+          <button class="btn btn-danger-ghost" id="btnReset">✕ Reset</button>
+        </div>
+      </div>
+      <div class="controls-strip">
+        <div class="speed-wrap" id="speedWrap">
+          <span>AUTO SPEED</span>
+          <input type="range" id="speedSlider" min="500" max="3200" value="1400" step="100">
+          <span id="speedLabel">1400ms / step</span>
+        </div>
+      </div>
+
+      <div class="examples">
+        <div class="examples-group">
+          <div class="examples-label"><span class="sw" style="background:var(--success);"></span>Valid (format + recognized state)</div>
+          <div class="examples-chips">
+            <button class="ex-chip" data-ex="MH12AB1234">MH12AB1234</button>
+            <button class="ex-chip" data-ex="KA01MK5678">KA01MK5678</button>
+            <button class="ex-chip" data-ex="DL05CD4321">DL05CD4321</button>
+          </div>
+        </div>
+        <div class="examples-group">
+          <div class="examples-label"><span class="sw" style="background:var(--cyan);"></span>Valid — vehicle number with 1, 2, or 3 digits</div>
+          <div class="examples-chips">
+            <button class="ex-chip" data-ex="MH10AB9">MH10AB9 (1 digit)</button>
+            <button class="ex-chip" data-ex="MH10AB25">MH10AB25 (2 digits)</button>
+            <button class="ex-chip" data-ex="MH10AB789">MH10AB789 (3 digits)</button>
+          </div>
+        </div>
+        <div class="examples-group">
+          <div class="examples-label"><span class="sw" style="background:var(--danger);"></span>Invalid format (rejected by the DFA)</div>
+          <div class="examples-chips">
+            <button class="ex-chip" data-ex="MH1AB1234">MH1AB1234</button>
+            <button class="ex-chip" data-ex="MH12A1234">MH12A1234</button>
+            <button class="ex-chip" data-ex="12MHAB1234">12MHAB1234</button>
+          </div>
+        </div>
+        <div class="examples-group">
+          <div class="examples-label"><span class="sw" style="background:var(--warning);"></span>Valid format, unrecognized state code</div>
+          <div class="examples-chips">
+            <button class="ex-chip" data-ex="XX12AB1234">XX12AB1234</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MAIN GRID: GRAPH + EXPLAIN / HISTORY ============ -->
+  <section class="main-grid">
+
+    <!-- DFA VISUALIZER + EXPLANATION -->
+    <div class="panel">
+      <div class="panel-head">
+        <h2>DFA State Graph <span class="tag">M = (Q, Σ, δ, q0, F)</span></h2>
+        <div class="legend">
+          <span class="legend-item"><span class="legend-dot" style="background:var(--gold); box-shadow:0 0 8px var(--gold);"></span>current</span>
+          <span class="legend-item"><span class="legend-dot" style="background:var(--cyan);"></span>visited</span>
+          <span class="legend-item"><span class="legend-dot" style="background:var(--success);"></span>accept</span>
+          <span class="legend-item"><span class="legend-dot" style="background:var(--danger);"></span>dead</span>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div class="graph-scroll">
+          <svg id="dfaSvg" viewBox="0 0 1230 330" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <marker id="arrow-wire" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a4566"/></marker>
+              <marker id="arrow-cyan" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#46c7e0"/></marker>
+              <marker id="arrow-gold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f0a828"/></marker>
+              <marker id="arrow-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fb5a73"/></marker>
+              <filter id="glowGold" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <filter id="glowGreen" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="7" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <filter id="glowRed" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="6" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            </defs>
+            <g id="edgesLayer"></g>
+            <g id="nodesLayer"></g>
+          </svg>
+        </div>
+      </div>
+      <div class="status-strip">
+        <div class="status-chip state-now">Current state: <b id="statCurrent">q0</b></div>
+        <div class="status-chip">Chars read: <b id="statRead">0 / –</b></div>
+        <div class="status-chip">Status: <b id="statStatus">Idle</b></div>
+      </div>
+
+      <!-- STEP EXPLANATION PANEL -->
+      <div class="explain-panel" id="explainPanel">
+        <div class="explain-empty" id="explainEmpty">— start a simulation to see a full explanation before every transition —</div>
+      </div>
+    </div>
+
+    <!-- EXECUTION HISTORY -->
+    <div class="panel history-panel">
+      <div class="panel-head"><h2>Execution History <span class="tag">complete trace</span></h2></div>
+      <div class="panel-body" id="historyBody">
+        <div class="history-empty">— each committed step will appear here as a table row: Step, Character, Type, Current State, Expected, Next State, Result —</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULT BANNER ============ -->
+  <div class="result-banner" id="resultBanner">
+    <div class="result-head">
+      <div class="result-icon" id="resultIcon">✓</div>
+      <div>
+        <p class="result-title" id="resultTitle">ACCEPTED</p>
+        <p class="result-sub" id="resultSub">Input follows the DFA pattern LLDDLL + 1–4 digits</p>
+      </div>
+    </div>
+    <div class="result-detail-text" id="resultDetailText"></div>
+    <div class="checklist" id="checklist" style="display:none;"></div>
+    <div class="reject-detail" id="rejectDetail" style="display:none;"></div>
+  </div>
+
+  <!-- ============ BREAKDOWN ============ -->
+  <section class="breakdown" id="breakdownSection">
+    <div class="panel">
+      <div class="panel-head"><h2>Vehicle Number Breakdown <span class="tag">pattern → real-world fields</span></h2></div>
+      <div class="panel-body">
+        <div class="plate-visual" id="plateVisual"></div>
+        <div class="breakdown-grid" id="breakdownGrid"></div>
+        <div class="statecode-card" id="statecodeCard" style="display:none;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ EDUCATIONAL PANEL ============ -->
+  <section class="edu">
+    <div class="panel">
+      <div class="panel-head"><h2>Deeper Q&amp;A <span class="tag">theory reference</span></h2></div>
+
+      <div class="accordion-item open">
+        <button class="accordion-trigger" data-target="p1">What is a DFA? <span class="chev">+</span></button>
+        <div class="accordion-panel" id="p1">
+          <div class="accordion-panel-inner">
+            A <strong>Deterministic Finite Automaton</strong> is a 5-tuple <code>M = (Q, Σ, δ, q0, F)</code> — a finite set of states <code>Q</code>, an input alphabet <code>Σ</code>, a transition function <code>δ: Q × Σ → Q</code>, a start state <code>q0</code>, and a set of accepting states <code>F</code>. For every state and every input symbol there is <em>exactly one</em> next state. This simulator's <code>δ</code> is a hand-written lookup table, not a regular-expression match, so every character genuinely walks the automaton one transition at a time.
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" data-target="p2">What is a state? <span class="chev">+</span></button>
+        <div class="accordion-panel" id="p2">
+          <div class="accordion-panel-inner">
+            A state is a snapshot of "how much of the pattern has been matched so far." <code>q0</code> means "nothing read yet," <code>q3</code> means "state code + first RTO digit consumed," and so on. States <code>q7</code> through <code>q10</code> all mean "the fixed prefix is done and 1–4 digits of the vehicle number have been read" — since Indian vehicle numbers can end in 1 to 4 digits, all four of these are accepting states.
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" data-target="p3">What is a transition? <span class="chev">+</span></button>
+        <div class="accordion-panel" id="p3">
+          <div class="accordion-panel-inner">
+            A transition <code>δ(qi, a) = qj</code> says "if I'm in state <code>qi</code> and I read symbol <code>a</code>, move to state <code>qj</code>." If the symbol doesn't match what <code>qi</code> expects — a letter where a digit is required, or a character outside Σ — there's no valid outgoing edge, so the machine falls into the dead state <code>qd</code>.
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" data-target="p4">Why did the DFA move to a particular state? <span class="chev">+</span></button>
+        <div class="accordion-panel" id="p4">
+          <div class="accordion-panel-inner">
+            Every step panel above answers this directly for the current run: it names the current state, what type of character that state requires, what character was actually read, and — if the transition succeeds — which state it leads to (or, if it fails, why the DFA falls into <code>qd</code> instead).
+          </div>
+        </div>
+      </div>
+      <div class="accordion-item">
+        <button class="accordion-trigger" data-target="p5">Why was this specific input accepted or rejected? <span class="chev">+</span></button>
+        <div class="accordion-panel" id="p5">
+          <div class="accordion-panel-inner">
+            <div class="dyn-explain" id="whyExplain">Run a simulation above — this section will explain the specific run using the actual states and transitions your input triggered.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Client-side DFA simulation · No backend, no data leaves your browser · Format &amp; state-code check only — not a real registration lookup
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   1. DFA DEFINITION — pattern: L L D D L L D{1,4}
+      The final "vehicle number" section accepts 1 to 4 digits,
+      so q7, q8, q9 AND q10 are all accepting states (F).
+   ============================================================ */
+const PATTERN = ["L","L","D","D","L","L","D","D","D","D"];
+const STATES = ["q0","q1","q2","q3","q4","q5","q6","q7","q8","q9","q10"];
+const ACCEPT_STATES = ["q7","q8","q9","q10"]; // F — accept after 1, 2, 3, or 4 digits
+const DEAD_STATE = "qd";
+const PREFIX_LEN = 6; // LLDDLL — state code + RTO code + series, always fixed
+
+function isAccepting(state){ return ACCEPT_STATES.indexOf(state) !== -1; }
+function digitsSoFar(idx){ return Math.max(0, idx - PREFIX_LEN); } // how many vehicle-number digits consumed after idx chars
+
+const TRANSITIONS = {};
+STATES.forEach((s, i) => {
+  if (i < STATES.length - 1) TRANSITIONS[s] = { [PATTERN[i]]: STATES[i + 1] };
+  else TRANSITIONS[s] = {};
+});
+
+function classify(ch){
+  if (/^[A-Z]$/.test(ch)) return "L";
+  if (/^[0-9]$/.test(ch)) return "D";
+  return null;
+}
+
+// Segment name + description for a 0-based position index (0..9)
+function segmentInfo(idx){
+  if (idx <= 1)  return { name:"State/UT code",  fieldWord:"state/UT code",  hint:"the region where the vehicle is registered" };
+  if (idx <= 3)  return { name:"RTO code",       fieldWord:"RTO (district) code", hint:"the local Regional Transport Office" };
+  if (idx <= 5)  return { name:"Series",         fieldWord:"registration series", hint:"a letter series distinguishing batches" };
+  return               { name:"Vehicle number",  fieldWord:"unique vehicle number", hint:"the unique numeric identifier" };
+}
+function typeWord(t){ return t === "L" ? "a letter (A-Z)" : "a digit (0-9)"; }
+
+/* ---- Indian State / UT registration codes (for the second validation layer) ---- */
+const VALID_STATE_CODES = {
+  AN:"Andaman & Nicobar Islands", AP:"Andhra Pradesh", AR:"Arunachal Pradesh", AS:"Assam",
+  BR:"Bihar", CH:"Chandigarh", CG:"Chhattisgarh", DD:"Daman & Diu", DN:"Dadra & Nagar Haveli",
+  DL:"Delhi", GA:"Goa", GJ:"Gujarat", HR:"Haryana", HP:"Himachal Pradesh", JK:"Jammu & Kashmir",
+  JH:"Jharkhand", KA:"Karnataka", KL:"Kerala", LA:"Ladakh", LD:"Lakshadweep", MP:"Madhya Pradesh",
+  MH:"Maharashtra", MN:"Manipur", ML:"Meghalaya", MZ:"Mizoram", NL:"Nagaland", OD:"Odisha",
+  OR:"Odisha (legacy code)", PY:"Puducherry", PB:"Punjab", RJ:"Rajasthan", SK:"Sikkim",
+  TN:"Tamil Nadu", TS:"Telangana", TR:"Tripura", UP:"Uttar Pradesh", UK:"Uttarakhand",
+  UA:"Uttarakhand (legacy code)", WB:"West Bengal"
+};
+
+/* ============================================================
+   2. STATE-NODE LAYOUT (SVG coordinates)
+   ============================================================ */
+const NODE_R = 30;
+const nodePos = {};
+STATES.forEach((s, i) => {
+  nodePos[s] = { x: 78 + i * 105, y: 150 + Math.sin(i * 0.85) * 34 };
+});
+nodePos[DEAD_STATE] = { x: nodePos["q10"].x, y: nodePos["q10"].y + 130 };
+
+const svgNS = "http://www.w3.org/2000/svg";
+const edgesLayer = document.getElementById("edgesLayer");
+const nodesLayer = document.getElementById("nodesLayer");
+function makeEl(tag, attrs){ const el = document.createElementNS(svgNS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); return el; }
+
+const edgeEls = {};
+for (let i = 0; i < STATES.length - 1; i++){
+  const a = nodePos[STATES[i]], b = nodePos[STATES[i+1]];
+  const midx = (a.x + b.x) / 2, dy = (b.y - a.y), cpY = a.y + dy/2 - 26;
+  const d = `M ${a.x+NODE_R},${a.y} Q ${midx},${cpY} ${b.x-NODE_R},${b.y}`;
+  const path = makeEl("path", { d, fill:"none", stroke:"#3a4566", "stroke-width":2.5, "marker-end":"url(#arrow-wire)" });
+  edgesLayer.appendChild(path);
+  const lblText = PATTERN[i], lx = midx, ly = cpY + 4;
+  const bg = makeEl("rect", { x:lx-11, y:ly-13, width:22, height:18, rx:5, class:"edge-label-bg" });
+  const txt = makeEl("text", { x:lx, y:ly, "text-anchor":"middle", class:"edge-label", fill: lblText==="L" ? "#46c7e0" : "#f0a828" });
+  txt.textContent = lblText;
+  edgesLayer.appendChild(bg); edgesLayer.appendChild(txt);
+  edgeEls[STATES[i]+"-"+STATES[i+1]] = { path, bg, txt };
+}
+const deadPath = makeEl("path", { d:"", fill:"none", stroke:"#fb5a73", "stroke-width":2.5, "stroke-dasharray":"6 5", "marker-end":"url(#arrow-red)", opacity:"0" });
+edgesLayer.appendChild(deadPath);
+
+const DIGIT_SUB_LABEL = { q7:"accept · 1 digit", q8:"accept · 2 digits", q9:"accept · 3 digits", q10:"accept · 4 digits" };
+const nodeEls = {};
+STATES.forEach((s, i) => {
+  const p = nodePos[s];
+  const g = makeEl("g", { class:"state-node", "data-state":s });
+  const isAccept = isAccepting(s);
+  if (isAccept) g.appendChild(makeEl("circle", { cx:p.x, cy:p.y, r:NODE_R+6, fill:"none", stroke:"#34d399", "stroke-width":2, opacity:"0.55" }));
+  const circle = makeEl("circle", { cx:p.x, cy:p.y, r:NODE_R, fill:"#101828", stroke: isAccept ? "#34d399" : "#3a4566", "stroke-width": isAccept ? 2.5 : 2 });
+  g.appendChild(circle);
+  const label = makeEl("text", { x:p.x, y:p.y+2, "text-anchor":"middle", "dominant-baseline":"middle", class:"state-label" });
+  label.textContent = s; g.appendChild(label);
+  const sub = makeEl("text", { x:p.x, y:p.y+NODE_R+16, "text-anchor":"middle", class:"state-sub" });
+  sub.textContent = i === 0 ? "start" : (isAccept ? DIGIT_SUB_LABEL[s] : "");
+  g.appendChild(sub);
+  if (i === 0){
+    const startLine = makeEl("path", { d:`M ${p.x-64},${p.y} L ${p.x-NODE_R-4},${p.y}`, stroke:"#f0a828", "stroke-width":2.5, "marker-end":"url(#arrow-gold)" });
+    edgesLayer.insertBefore(startLine, edgesLayer.firstChild);
+  }
+  nodesLayer.appendChild(g);
+  nodeEls[s] = { g, circle, label };
+});
+(function(){
+  const p = nodePos[DEAD_STATE];
+  const g = makeEl("g", { class:"state-node", "data-state":DEAD_STATE });
+  const circle = makeEl("circle", { cx:p.x, cy:p.y, r:NODE_R-2, fill:"#101828", stroke:"#6b7280", "stroke-width":2, "stroke-dasharray":"4 4" });
+  g.appendChild(circle);
+  const label = makeEl("text", { x:p.x, y:p.y+2, "text-anchor":"middle", "dominant-baseline":"middle", class:"state-label", fill:"#9aa1b5" });
+  label.textContent = "qd"; g.appendChild(label);
+  const sub = makeEl("text", { x:p.x, y:p.y+NODE_R+12, "text-anchor":"middle", class:"state-sub" });
+  sub.textContent = "dead / trap"; g.appendChild(sub);
+  nodesLayer.appendChild(g);
+  nodeEls[DEAD_STATE] = { g, circle, label };
+})();
+
+function resetGraphVisuals(){
+  STATES.forEach(s => {
+    const { circle, g } = nodeEls[s];
+    circle.setAttribute("fill", "#101828");
+    circle.setAttribute("stroke", isAccepting(s) ? "#34d399" : "#3a4566");
+    circle.setAttribute("stroke-width", isAccepting(s) ? "2.5" : "2");
+    circle.removeAttribute("filter"); g.style.opacity = 1;
+  });
+  nodeEls[DEAD_STATE].circle.setAttribute("fill", "#101828");
+  nodeEls[DEAD_STATE].circle.removeAttribute("filter");
+  for (const key in edgeEls){
+    edgeEls[key].path.setAttribute("stroke", "#3a4566");
+    edgeEls[key].path.setAttribute("marker-end", "url(#arrow-wire)");
+    edgeEls[key].path.removeAttribute("filter");
+  }
+  deadPath.setAttribute("opacity", "0");
+}
+function markVisited(state){ const { circle } = nodeEls[state]; circle.setAttribute("fill", "rgba(70,199,224,0.12)"); circle.setAttribute("stroke", "#46c7e0"); circle.setAttribute("stroke-width","2"); circle.removeAttribute("filter"); }
+function markCurrent(state){
+  const { circle } = nodeEls[state]; const isAccept = isAccepting(state);
+  circle.setAttribute("fill", isAccept ? "rgba(52,211,153,0.18)" : "rgba(240,168,40,0.18)");
+  circle.setAttribute("stroke", isAccept ? "#34d399" : "#f0a828");
+  circle.setAttribute("stroke-width", "3");
+  circle.setAttribute("filter", isAccept ? "url(#glowGreen)" : "url(#glowGold)");
+}
+function markEdgeTraveled(fromState, toState){
+  const e = edgeEls[fromState + "-" + toState]; if (!e) return;
+  e.path.setAttribute("stroke", "#f0a828"); e.path.setAttribute("marker-end", "url(#arrow-gold)"); e.path.setAttribute("filter", "url(#glowGold)");
+}
+function markDeadTransition(fromState){
+  const a = nodePos[fromState], b = nodePos[DEAD_STATE];
+  const midx = (a.x + b.x) / 2 + 40;
+  const d = `M ${a.x},${a.y+NODE_R} Q ${midx},${(a.y+b.y)/2} ${b.x},${b.y-NODE_R}`;
+  deadPath.setAttribute("d", d); deadPath.setAttribute("opacity", "1");
+  const dc = nodeEls[DEAD_STATE].circle;
+  dc.setAttribute("fill", "rgba(251,90,115,0.18)"); dc.setAttribute("stroke", "#fb5a73"); dc.setAttribute("filter", "url(#glowRed)");
+}
+
+/* ============================================================
+   3. DOM REFS
+   ============================================================ */
+const els = {
+  input: document.getElementById("plateInput"),
+  charCount: document.getElementById("charCount"),
+  modeAuto: document.getElementById("modeAuto"),
+  modeManual: document.getElementById("modeManual"),
+  btnSimulate: document.getElementById("btnSimulate"),
+  btnPause: document.getElementById("btnPause"),
+  btnPrev: document.getElementById("btnPrev"),
+  btnNext: document.getElementById("btnNext"),
+  btnRestart: document.getElementById("btnRestart"),
+  btnReset: document.getElementById("btnReset"),
+  speedWrap: document.getElementById("speedWrap"),
+  speedSlider: document.getElementById("speedSlider"),
+  speedLabel: document.getElementById("speedLabel"),
+  explainPanel: document.getElementById("explainPanel"),
+  historyBody: document.getElementById("historyBody"),
+  statCurrent: document.getElementById("statCurrent"),
+  statRead: document.getElementById("statRead"),
+  statStatus: document.getElementById("statStatus"),
+  resultBanner: document.getElementById("resultBanner"),
+  resultIcon: document.getElementById("resultIcon"),
+  resultTitle: document.getElementById("resultTitle"),
+  resultSub: document.getElementById("resultSub"),
+  resultDetailText: document.getElementById("resultDetailText"),
+  checklist: document.getElementById("checklist"),
+  rejectDetail: document.getElementById("rejectDetail"),
+  breakdownSection: document.getElementById("breakdownSection"),
+  plateVisual: document.getElementById("plateVisual"),
+  breakdownGrid: document.getElementById("breakdownGrid"),
+  statecodeCard: document.getElementById("statecodeCard"),
+  whyExplain: document.getElementById("whyExplain"),
+};
+
+let sim = null;
+let uiMode = "auto"; // 'auto' | 'manual'
+
+/* ============================================================
+   4. SIMULATION ENGINE — prepare(explain) -> confirm -> commit
+   ============================================================ */
+function freshSim(raw){
+  return { raw, chars: raw.toUpperCase().split(""), idx: 0, current: "q0", finished:false, pending:null, timer:null, playing:false, committed:[], historyRowEls:[] };
+}
+
+function updateCharCount(){ els.charCount.textContent = els.input.value.length + " / 10"; }
+
+function setControlsForRun(started){
+  els.btnSimulate.disabled = started;
+  els.input.disabled = started;
+  els.modeAuto.disabled = started;
+  els.modeManual.disabled = started;
+  if (uiMode === "auto"){
+    els.btnPause.style.display = "inline-flex";
+    els.btnPrev.style.display = "none";
+    els.btnNext.style.display = "none";
+  } else {
+    els.btnPause.style.display = "none";
+    els.btnPrev.style.display = "inline-flex";
+    els.btnNext.style.display = "inline-flex";
+  }
+}
+
+function setMode(mode){
+  uiMode = mode;
+  els.modeAuto.classList.toggle("active", mode === "auto");
+  els.modeManual.classList.toggle("active", mode === "manual");
+  els.speedWrap.classList.toggle("disabled", mode !== "auto");
+  if (sim && !sim.finished) setControlsForRun(true);
+}
+els.modeAuto.addEventListener("click", () => { if (!sim) setMode("auto"); });
+els.modeManual.addEventListener("click", () => { if (!sim) setMode("manual"); });
+
+function resetAll(clearInput){
+  if (sim && sim.timer) clearTimeout(sim.timer);
+  sim = null;
+  resetGraphVisuals();
+  els.explainPanel.innerHTML = '<div class="explain-empty" id="explainEmpty">— start a simulation to see a full explanation before every transition —</div>';
+  els.historyBody.innerHTML = '<div class="history-empty">— each committed step will appear here as a table row: Step, Character, Type, Current State, Expected, Next State, Result —</div>';
+  els.statCurrent.textContent = "q0";
+  els.statRead.textContent = "0 / –";
+  els.statStatus.textContent = "Idle";
+  els.resultBanner.style.display = "none";
+  els.breakdownSection.style.display = "none";
+  els.btnPause.disabled = true; els.btnPause.textContent = "⏸ Pause";
+  els.btnNext.disabled = true;
+  els.btnPrev.disabled = true;
+  els.whyExplain.textContent = "Run a simulation above — this section will explain the specific run using the actual states and transitions your input triggered.";
+  setControlsForRun(false);
+  if (clearInput){ els.input.value = ""; updateCharCount(); }
+  markCurrent("q0");
+}
+
+/* ---- build the step "explanation" object BEFORE moving ---- */
+function buildStepInfo(idx, currentState){
+  if (idx >= 10){
+    return { kind:"overflow", stepNumber: idx+1, current: currentState, ch: sim.chars[idx] };
+  }
+  const rawCh = sim.chars[idx];
+  const ch = rawCh.toUpperCase();
+  const type = classify(ch);
+  const expected = PATTERN[idx];
+  const seg = segmentInfo(idx);
+  const table = TRANSITIONS[currentState] || {};
+  const next = type ? table[type] : undefined;
+  const valid = !!next;
+
+  let why;
+  if (valid){
+    why = `State ${currentState} expects ${typeWord(expected)} because position ${idx+1} of the plate belongs to the ${seg.fieldWord} (${seg.hint}). '${ch}' is ${type === "L" ? "an uppercase letter" : "a digit"}, which matches, so the DFA can transition from ${currentState} to ${next}.`;
+  } else if (type === null){
+    why = `State ${currentState} expects ${typeWord(expected)} because position ${idx+1} belongs to the ${seg.fieldWord}. However, '${ch}' is not a letter or a digit — it falls outside Σ = {A-Z, 0-9} entirely. Since δ(${currentState}, '${ch}') is undefined, there is no valid transition, so the DFA moves to the dead state qd.`;
+  } else {
+    why = `State ${currentState} expects ${typeWord(expected)} because position ${idx+1} belongs to the ${seg.fieldWord}. However, '${ch}' is ${typeWord(type)}, not ${typeWord(expected)}. Since δ(${currentState}, ${type}) is undefined for this state, there is no valid transition — the DFA moves to the dead state qd.`;
+  }
+
+  return {
+    kind: valid ? "valid" : "invalid",
+    stepNumber: idx+1, ch, type, expected, current: currentState, next: next || DEAD_STATE, valid, seg, why
+  };
+}
+
+function renderExplainPanel(info){
+  const wrap = document.createElement("div");
+
+  if (info.kind === "overflow"){
+    wrap.innerHTML = `<div class="explain-why bad"><span class="label">Extra input</span>
+      The DFA already reached <strong>${info.current}</strong> after consuming the maximum of 4 digits in the vehicle number section. There are no transitions defined from q10 for further input (position ${info.stepNumber}, character '${info.ch}'), so the automaton moves to the dead state qd.</div>`;
+    els.explainPanel.innerHTML = "";
+    els.explainPanel.appendChild(wrap);
+    return;
+  }
+
+  const head = document.createElement("div");
+  head.className = "explain-step-head";
+  head.innerHTML = `<span class="step-count">Step ${info.stepNumber} of 10</span>
+    <span class="decision-pill ${info.valid ? "ok" : "bad"}">${info.valid ? "✓ Correct" : "✗ Invalid Transition"}</span>`;
+  wrap.appendChild(head);
+
+  const grid = document.createElement("div");
+  grid.className = "explain-grid";
+  grid.innerHTML = `
+    <div class="explain-cell readchar"><div class="k">Reading</div><div class="v">'${info.ch}'</div></div>
+    <div class="explain-cell"><div class="k">Current State</div><div class="v">${info.current}</div></div>
+    <div class="explain-cell ${info.type==="L"?"":""}"><div class="k">Character Type</div><div class="v">${info.type === "L" ? "Letter" : info.type === "D" ? "Digit" : "Invalid (∉ Σ)"}</div></div>
+    <div class="explain-cell"><div class="k">Expected</div><div class="v">${info.expected === "L" ? "Letter" : "Digit"}</div></div>
+    <div class="explain-cell ${info.valid ? "ok" : "bad"}"><div class="k">Decision</div><div class="v">${info.valid ? "✓ Correct" : "✗ Invalid"}</div></div>
+  `;
+  wrap.appendChild(grid);
+
+  const why = document.createElement("div");
+  why.className = "explain-why" + (info.valid ? "" : " bad");
+  why.innerHTML = `<span class="label">Why?</span>${info.why}`;
+  wrap.appendChild(why);
+
+  const trans = document.createElement("div");
+  trans.className = "transition-line" + (info.valid ? "" : " bad");
+  trans.innerHTML = info.valid
+    ? `<span class="from-state">${info.current}</span><span class="arrow-symbol">→</span><span class="to-state">${info.next}</span>`
+    : `<span class="from-state">${info.current}</span><span class="arrow-symbol">→</span><span class="to-state">qd</span><span class="dead-badge">DEAD STATE</span>`;
+  wrap.appendChild(trans);
+
+  const actions = document.createElement("div");
+  actions.className = "explain-actions";
+  if (uiMode === "manual"){
+    actions.innerHTML = `<span style="font-family:var(--font-mono); font-size:12px; color:var(--text-faint); align-self:center;">Click "Next Step →" to commit this transition</span>`;
+  } else {
+    actions.innerHTML = `<span style="font-family:var(--font-mono); font-size:12px; color:var(--text-faint); align-self:center;">Auto-advancing…</span>`;
+  }
+  wrap.appendChild(actions);
+
+  els.explainPanel.innerHTML = "";
+  els.explainPanel.appendChild(wrap);
+}
+
+function addHistoryRow(info, resultLabel, resultOk){
+  if (els.historyBody.querySelector(".history-empty")){
+    els.historyBody.innerHTML = `<table class="history-table"><thead><tr>
+      <th>Step</th><th>Char</th><th>Type</th><th>Current</th><th>Expected</th><th>Next</th><th>Result</th>
+    </tr></thead><tbody id="historyTbody"></tbody></table>`;
+  }
+  const tbody = document.getElementById("historyTbody");
+  const tr = document.createElement("tr");
+  tr.className = resultOk ? "row-ok" : "row-fail";
+  const typeStr = info.type === "L" ? "Letter" : info.type === "D" ? "Digit" : "Invalid";
+  const expStr = info.expected === "L" ? "Letter" : "Digit";
+  tr.innerHTML = `<td>${info.stepNumber}</td><td>${info.ch}</td><td>${typeStr}</td><td>${info.current}</td><td>${expStr}</td><td>${info.next}</td>
+    <td class="${resultOk ? "result-ok" : "result-bad"}">${resultLabel}</td>`;
+  tbody.appendChild(tr);
+  els.historyBody.scrollTop = els.historyBody.scrollHeight;
+  return tr;
+}
+
+function updatePrevButtonState(){
+  els.btnPrev.disabled = !sim || sim.committed.length === 0;
+}
+
+function prepareStep(){
+  if (!sim || sim.finished) return;
+  const info = buildStepInfo(sim.idx, sim.current);
+  sim.pending = info;
+  renderExplainPanel(info);
+  els.statStatus.textContent = uiMode === "manual" ? "Waiting for Next Step" : "Explaining…";
+  updatePrevButtonState();
+
+  if (uiMode === "manual"){
+    els.btnNext.disabled = false;
+  } else {
+    els.btnNext.disabled = true;
+    sim.timer = setTimeout(() => { if (sim && sim.playing) commitStep(); }, getSpeed());
+  }
+}
+
+function commitStep(){
+  if (!sim || !sim.pending) return;
+  const info = sim.pending;
+  sim.pending = null;
+  els.btnNext.disabled = true;
+  els.btnPrev.disabled = true;
+
+  if (info.kind === "overflow" || !info.valid){
+    const fromState = info.current;
+    const rowInfo = info.kind === "overflow"
+      ? { stepNumber: info.stepNumber, ch: info.ch, type: classify(info.ch), current: info.current, expected: "-", next: "qd" }
+      : info;
+    const tr = addHistoryRow(rowInfo, "✗ Rejected", false);
+    sim.committed.push({ type: info.kind === "overflow" ? "overflow" : "dead", info, fromState });
+    sim.historyRowEls.push(tr);
+    markDeadTransition(fromState);
+    sim.current = DEAD_STATE;
+    sim.finished = true;
+    els.statCurrent.textContent = "qd";
+    els.statStatus.textContent = "Rejected";
+    updatePrevButtonState();
+    finishReject(info, fromState);
+    return;
+  }
+
+  // valid transition — animate then advance
+  const tr = addHistoryRow(info, "✓ Valid", true);
+  sim.committed.push({ type:"valid", info });
+  sim.historyRowEls.push(tr);
+  markVisited(info.current);
+  markEdgeTraveled(info.current, info.next);
+  sim.current = info.next;
+  sim.idx++;
+  markCurrent(sim.current);
+  els.statCurrent.textContent = sim.current;
+  els.statRead.textContent = sim.idx + " / " + sim.chars.length;
+
+  if (sim.idx === sim.chars.length){
+    // all typed characters have been consumed — decide based on whether we're in an accepting state
+    if (isAccepting(sim.current)){
+      sim.finished = true;
+      els.statStatus.textContent = "Accepted";
+      updatePrevButtonState();
+      finishAccept();
+    } else {
+      sim.finished = true;
+      els.statStatus.textContent = "Rejected";
+      updatePrevButtonState();
+      finishReject({ stepNumber: sim.idx + 1, current: sim.current }, sim.current, true);
+    }
+    return;
+  }
+
+  if (uiMode === "manual"){
+    sim.timer = setTimeout(prepareStep, 260);
+  } else {
+    sim.timer = setTimeout(prepareStep, Math.min(320, getSpeed()*0.3));
+  }
+}
+
+/* ---- Previous Step (manual mode) — rewind one committed transition ---- */
+function previousStep(){
+  if (!sim || sim.committed.length === 0) return;
+  if (sim.timer) clearTimeout(sim.timer);
+  sim.playing = false;
+
+  const rec = sim.committed.pop();
+  const trEl = sim.historyRowEls.pop();
+  if (trEl && trEl.parentNode) trEl.parentNode.removeChild(trEl);
+  const tbody = document.getElementById("historyTbody");
+  if (tbody && tbody.children.length === 0){
+    els.historyBody.innerHTML = '<div class="history-empty">— each committed step will appear here as a table row: Step, Character, Type, Current State, Expected, Next State, Result —</div>';
+  }
+
+  // undo any finished/result state
+  sim.finished = false;
+  els.resultBanner.style.display = "none";
+  els.breakdownSection.style.display = "none";
+
+  if (rec.type === "valid"){
+    sim.idx--;
+    sim.current = rec.info.current; // state as it was before this transition
+  } else {
+    sim.current = rec.fromState; // dead/overflow: rewind to the state right before the fatal read
+  }
+
+  // redraw the graph from scratch using the remaining committed (valid) steps
+  resetGraphVisuals();
+  sim.committed.forEach(r => {
+    if (r.type === "valid"){ markVisited(r.info.current); markEdgeTraveled(r.info.current, r.info.next); }
+  });
+  markCurrent(sim.current);
+  els.statCurrent.textContent = sim.current;
+  els.statRead.textContent = sim.idx + " / " + sim.chars.length;
+
+  sim.pending = null;
+  prepareStep();
+}
+
+/* ---- playback control (automatic mode) ---- */
+function getSpeed(){ return parseInt(els.speedSlider.value, 10); }
+
+function startPlaying(){
+  if (!sim) return;
+  sim.playing = true;
+  els.btnPause.disabled = false;
+  els.btnPause.textContent = "⏸ Pause";
+  if (sim.pending) {
+    // resume waiting-on-timer
+    sim.timer = setTimeout(() => { if (sim && sim.playing) commitStep(); }, getSpeed());
+  } else {
+    prepareStep();
+  }
+}
+function stopPlaying(){
+  if (sim){ sim.playing = false; if (sim.timer) clearTimeout(sim.timer); }
+}
+
+/* ============================================================
+   5. FINISH: ACCEPT / REJECT EXPLANATIONS
+   ============================================================ */
+function checkStateCode(plate){
+  const code = plate.slice(0,2);
+  const name = VALID_STATE_CODES[code];
+  return { code, valid: !!name, name: name || null };
+}
+
+function finishAccept(){
+  stopPlaying();
+  const plate = sim.raw.toUpperCase();
+  const sc = checkStateCode(plate);
+  const numDigits = plate.length - PREFIX_LEN;
+  const finalState = sim.current; // q7..q10
+  const patternHTML = PATTERN.slice(0, plate.length).map(p => `<span class="pattern-char ${p}">${p}</span>`).join("");
+  const digitWord = numDigits === 1 ? "1 digit" : numDigits + " digits";
+  const vehicleNumberStr = plate.slice(PREFIX_LEN);
+
+  const lengthExplain = `The vehicle number section contains ${digitWord}. Indian vehicle registration numbers may contain 1 to 4 digits in the final numeric section. Since all previous components are valid and the DFA ended in an accepting state (<code>${finalState}</code>), this input is accepted.`;
+
+  els.resultBanner.style.display = "block";
+  els.rejectDetail.style.display = "none";
+  els.checklist.style.display = "flex";
+
+  if (sc.valid){
+    els.resultBanner.className = "result-banner accept";
+    els.resultIcon.textContent = "✓";
+    els.resultTitle.textContent = "DFA ACCEPTED";
+    els.resultSub.textContent = plate + " — matches the required format and state/UT code is recognized.";
+    els.resultDetailText.innerHTML = `
+      <p>The DFA successfully consumed all ${plate.length} characters of <code>${plate}</code>, following the pattern:</p>
+      <div class="pattern-strip">${patternHTML}</div>
+      <p>Therefore: characters 1–2 → state code · characters 3–4 → RTO code · characters 5–6 → series · characters 7–${plate.length} → vehicle number (${digitWord}).</p>
+      <p>${lengthExplain}</p>
+      <p>The DFA ended in <strong>${finalState} — an accepting state</strong>. Therefore the input belongs to the language recognized by this automaton.</p>
+      <p><strong>State Code Validation:</strong> <code>${sc.code}</code> → ${sc.name} ✓</p>
+    `;
+    els.checklist.innerHTML = `
+      <div class="check-item pass"><span class="ic">✓</span> Valid Vehicle Number Format (${digitWord} in number section)</div>
+      <div class="check-item pass"><span class="ic">✓</span> Recognized State/UT Code (${sc.code} — ${sc.name})</div>
+      <div class="check-item pass"><span class="ic">✓</span> DFA Accepted (reached ${finalState})</div>
+    `;
+    launchConfetti();
+    els.whyExplain.innerHTML = `The input <code>${plate}</code> matched the required type at every one of its ${plate.length} positions (L L D D L L, followed by ${digitWord}), driving the automaton through q0 → q1 → … → ${finalState} without ever needing an undefined transition. Because ${finalState} ∈ F = {q7, q8, q9, q10} and all input was consumed, δ*(q0, w) = ${finalState}, so the string is accepted by the DFA. Independently, its state code <code>${sc.code}</code> was checked against the list of recognized Indian State/UT codes and found valid (${sc.name}).`;
+  } else {
+    els.resultBanner.className = "result-banner warn";
+    els.resultIcon.textContent = "⚠";
+    els.resultTitle.textContent = "FORMAT VALID — STATE/UT CODE NOT RECOGNIZED";
+    els.resultSub.textContent = plate + " — matches the required pattern, but its state code isn't in the recognized list.";
+    els.resultDetailText.innerHTML = `
+      <p>The DFA successfully consumed all ${plate.length} characters of <code>${plate}</code>, following the pattern:</p>
+      <div class="pattern-strip">${patternHTML}</div>
+      <p>${lengthExplain}</p>
+      <p>The DFA ended in <strong>${finalState} — an accepting state</strong>, so the string does belong to the formal language recognized by this automaton.</p>
+      <p>However, this validator performs a <strong>second, independent check</strong>: the first two letters must be a recognized Indian State/UT registration code. <code>${sc.code}</code> is not in that list.</p>
+      <p>These two checks are separate on purpose — the DFA only knows about the shape of the plate, not about which specific letter pairs are real state codes.</p>
+    `;
+    els.checklist.innerHTML = `
+      <div class="check-item pass"><span class="ic">✓</span> Valid Vehicle Number Format (${digitWord} in number section)</div>
+      <div class="check-item fail"><span class="ic">✗</span> Recognized State/UT Code (${sc.code} is not a recognized code)</div>
+      <div class="check-item pass"><span class="ic">✓</span> DFA Accepted (reached ${finalState})</div>
+    `;
+    els.whyExplain.innerHTML = `The input <code>${plate}</code> satisfies the DFA's pattern (LLDDLL followed by ${digitWord}), so formally δ*(q0, w) = ${finalState} ∈ F and the DFA accepts it. But the state-code lookup (a separate check layered on top of the DFA) found that <code>${sc.code}</code> is not among the recognized Indian State/UT codes — so while the <em>format</em> is valid, the plate as a whole isn't fully recognized.`;
+  }
+
+  showBreakdown(plate, sc, vehicleNumberStr, finalState);
+}
+
+function finishReject(info, failingState, isShortfall){
+  stopPlaying();
+  const plate = sim.raw.toUpperCase();
+  els.resultBanner.style.display = "block";
+  els.resultBanner.className = "result-banner reject";
+  els.resultIcon.textContent = "✗";
+  els.resultTitle.textContent = "REJECTED";
+  els.checklist.style.display = "none";
+  els.breakdownSection.style.display = "none";
+
+  let reasonSentence, expected, received, pos;
+
+  if (isShortfall){
+    pos = sim.idx + 1;
+    expected = "reach an accepting state (q7–q10)";
+    received = `ended in ${failingState} — not an accepting state (only ${sim.idx} character(s) consumed)`;
+    if (sim.idx < PREFIX_LEN){
+      reasonSentence = `Input rejected because the plate ended after only ${sim.idx} character(s), while state ${failingState} is still in the middle of the fixed prefix (state code, RTO code, series — 6 characters total). None of q0–q6 are accepting states, so the DFA cannot stop here.`;
+    } else {
+      reasonSentence = `Input rejected because the plate ended at state ${failingState}, right after the fixed 6-character prefix (state code, RTO code, series), but before any digit of the vehicle number was entered. A valid Indian vehicle number requires at least 1 digit — and up to 4 — in the final numeric section, so q6 is not an accepting state.`;
+    }
+  } else if (info.kind === "overflow"){
+    pos = info.stepNumber;
+    expected = "end of input (vehicle number section already has 4 digits)";
+    received = `extra character '${info.ch}'`;
+    reasonSentence = `Input rejected because character ${pos} ('${info.ch}') appears after the DFA already reached q10 — the vehicle number section already has its maximum of 4 digits. Indian vehicle numbers allow at most 4 digits in the final section, so no further input is valid.`;
+  } else {
+    pos = info.stepNumber;
+    expected = info.expected === "L" ? "Letter (A-Z)" : "Digit (0-9)";
+    received = info.type === null ? `Invalid symbol '${info.ch}' (∉ Σ)` : (info.type === "L" ? `Letter '${info.ch}'` : `Digit '${info.ch}'`);
+    reasonSentence = `Input rejected because character ${pos} ('${info.ch}') violates the required pattern — ${info.why}`;
+  }
+
+  els.resultSub.textContent = plate + " does not match the required format.";
+  els.resultDetailText.innerHTML = `<p><strong>Reason for rejection:</strong></p><p>${reasonSentence}</p>`;
+
+  els.rejectDetail.style.display = "grid";
+  els.rejectDetail.innerHTML = `
+    <div class="reject-cell hi"><div class="k">Failing state</div><div class="v">${failingState}</div></div>
+    <div class="reject-cell hi"><div class="k">Position</div><div class="v">${pos}</div></div>
+    <div class="reject-cell"><div class="k">Expected</div><div class="v">${expected}</div></div>
+    <div class="reject-cell hi"><div class="k">Received</div><div class="v">${received}</div></div>
+    <div class="reject-cell"><div class="k">Transitioned to</div><div class="v" style="color:var(--danger);">qd (dead state)</div></div>
+  `;
+
+  els.whyExplain.innerHTML = reasonSentence + ` Once in the dead state <code>qd</code>, there is no transition back to an accepting state, so the input is rejected regardless of any remaining characters.`;
+}
+
+function showBreakdown(plate, sc, vehicleNumberOverride, finalState){
+  const stateCode = plate.slice(0,2), rto = plate.slice(2,4), series = plate.slice(4,6);
+  const num = vehicleNumberOverride !== undefined ? vehicleNumberOverride : plate.slice(PREFIX_LEN);
+
+  els.plateVisual.innerHTML = `
+    <div class="plate-seg state">${stateCode}</div>
+    <div class="plate-seg rto">${rto}</div>
+    <div class="plate-seg series">${series}</div>
+    <div class="plate-seg num">${num}</div>
+  `;
+
+  const numberRange = "q6 → " + (finalState || "q" + (PREFIX_LEN + num.length));
+  const cards = [
+    { cls:"state", k:"State Code", v:stateCode, extra: sc.valid ? sc.name : "unrecognized code", range:"q0 → q2" },
+    { cls:"rto", k:"RTO Code", v:rto, extra:"district transport office no.", range:"q2 → q4" },
+    { cls:"series", k:"Series", v:series, extra:"registration series", range:"q4 → q6" },
+    { cls:"num", k:"Vehicle Number", v:num, extra:num.length + " digit" + (num.length===1?"":"s") + " — 1 to 4 allowed", range:numberRange },
+  ];
+  els.breakdownGrid.innerHTML = cards.map(c => `
+    <div class="bd-card ${c.cls}">
+      <div class="k">${c.k}</div>
+      <div class="v">${c.v}</div>
+      <div class="extra">${c.extra}</div>
+      <div class="range">${c.range} — DFA states</div>
+    </div>`).join("");
+
+  els.statecodeCard.style.display = "flex";
+  els.statecodeCard.className = "statecode-card " + (sc.valid ? "pass" : "fail");
+  els.statecodeCard.innerHTML = sc.valid
+    ? `<div class="ic">✓</div><div><div class="code">${sc.code} → ${sc.name}</div><div class="name">Recognized Indian State/UT registration code</div></div>`
+    : `<div class="ic">✗</div><div><div class="code">${sc.code} → not recognized</div><div class="name">This two-letter code is not in the validator's list of Indian State/UT codes</div></div>`;
+
+  els.breakdownSection.style.display = "block";
+}
+
+/* ============================================================
+   6. EVENT WIRING
+   ============================================================ */
+els.input.addEventListener("input", () => {
+  if (els.input.value.length > 12) els.input.value = els.input.value.slice(0, 12);
+  updateCharCount();
+});
+document.querySelectorAll(".ex-chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (sim) resetAll(false);
+    els.input.value = btn.getAttribute("data-ex");
+    updateCharCount();
+    els.input.focus();
+  });
+});
+els.speedSlider.addEventListener("input", () => { els.speedLabel.textContent = els.speedSlider.value + "ms / step"; });
+
+els.btnSimulate.addEventListener("click", () => {
+  const raw = els.input.value.trim();
+  if (!raw){ els.input.focus(); return; }
+  resetAll(false);
+  els.input.value = raw; updateCharCount();
+  sim = freshSim(raw);
+  markCurrent("q0");
+  setControlsForRun(true);
+  if (uiMode === "auto") startPlaying();
+  else { sim.playing = true; prepareStep(); }
+});
+
+els.btnPause.addEventListener("click", () => {
+  if (!sim || sim.finished) return;
+  if (sim.playing){ stopPlaying(); els.btnPause.textContent = "▶ Resume"; els.statStatus.textContent = "Paused"; }
+  else { startPlaying(); }
+});
+
+els.btnNext.addEventListener("click", () => {
+  if (!sim || sim.finished || !sim.pending) return;
+  if (sim.timer) clearTimeout(sim.timer);
+  commitStep();
+});
+
+els.btnPrev.addEventListener("click", () => { previousStep(); });
+
+els.btnRestart.addEventListener("click", () => {
+  const raw = (sim ? sim.raw : els.input.value.trim());
+  if (!raw) return;
+  resetAll(false);
+  els.input.value = raw; updateCharCount();
+  sim = freshSim(raw);
+  markCurrent("q0");
+  setControlsForRun(true);
+  if (uiMode === "auto") startPlaying();
+  else { sim.playing = true; prepareStep(); }
+});
+
+els.btnReset.addEventListener("click", () => { resetAll(true); });
+
+/* ============================================================
+   7. CONFETTI
+   ============================================================ */
+function launchConfetti(){
+  const colors = ["#34d399","#f0a828","#46c7e0","#8b7cf6","#ffffff"];
+  for (let i=0;i<70;i++){
+    const el = document.createElement("div");
+    el.className = "confetti-piece";
+    const size = 6 + Math.random()*6;
+    el.style.width = size+"px"; el.style.height = (size*0.4+4)+"px";
+    el.style.left = Math.random()*100+"vw";
+    el.style.background = colors[Math.floor(Math.random()*colors.length)];
+    el.style.animationDuration = (2.2 + Math.random()*1.6)+"s";
+    el.style.opacity = String(0.7 + Math.random()*0.3);
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+}
+
+/* ============================================================
+   8. ACCORDION
+   ============================================================ */
+document.querySelectorAll(".accordion-trigger").forEach(trigger => {
+  const item = trigger.closest(".accordion-item");
+  const panel = document.getElementById(trigger.getAttribute("data-target"));
+  function sync(){ panel.style.maxHeight = item.classList.contains("open") ? panel.scrollHeight + "px" : "0px"; }
+  sync();
+  trigger.addEventListener("click", () => { item.classList.toggle("open"); sync(); });
+  window.addEventListener("resize", () => { if (item.classList.contains("open")) panel.style.maxHeight = panel.scrollHeight + "px"; });
+});
+
+/* ============================================================
+   INIT
+   ============================================================ */
+resetAll(false);
+els.speedLabel.textContent = els.speedSlider.value + "ms / step";
+setMode("auto");
+
+})();
+</script>
+</body>
+</html>
